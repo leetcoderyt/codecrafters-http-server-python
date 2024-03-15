@@ -13,8 +13,15 @@ def main():
     message = data.decode(ENCODING)
     print(f"Received from client: {message}")
 
-    response = "HTTP/1.1 200 OK\r\n\r\n"
-    client_socket.sendall(response.encode(ENCODING))
+    path = message.split("\r\n")[0].split(' ')[1]
+
+    if path == "/":
+        response = "HTTP/1.1 200 OK\r\n\r\n"
+        client_socket.sendall(response.encode(ENCODING))
+    else:
+        response = "HTTP/1.1 404 Not Found\r\n\r\n"
+        client_socket.sendall(response.encode(ENCODING))
+
     client_socket.close()
 
 
