@@ -3,11 +3,15 @@ import socket
 BUFFER_SIZE = 1024
 ENCODING = "utf-8"
 
+def response_with_content(content):
+    return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(content)}\r\n\r\n{content}"
 
-def response(path):
+def response(path, user_agent):
     if path[0:5] == "/echo":
         random_string = '/'.join(path.split('/')[2:])
-        return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(random_string)}\r\n\r\n{random_string}"
+        return response_with_content(random_string)
+    elif path[0:11] == "/user-agent":
+        return response_with_content(user_agent)
     elif path == "/":
         return "HTTP/1.1 200 OK\r\n\r\n"
 
@@ -19,11 +23,13 @@ def main():
     print(f"Connection from {address} has been established.")
 
     data = client_socket.recv(BUFFER_SIZE)
-    message = data.decode(ENCODING)
-    print(f"Received from client: {message}")
+    request = data.decode(ENCODING)
+    print(f"Received from client: {request}")
 
-    path = message.split("\r\n")[0].split(' ')[1]
-    client_socket.sendall(response(path).encode(ENCODING))
+    request_split = request.split("\r\n")
+    path = request_split[0].split(" ")[1]
+    user_agent = request_split[2].split(" ")[1]
+    client_socket.sendall(response(path, user_agent).encode(ENCODING))
     client_socket.close()
 
 
