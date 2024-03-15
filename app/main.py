@@ -6,14 +6,23 @@ from pathlib import Path
 BUFFER_SIZE = 1024
 ENCODING = "utf-8"
 
-def response_with_content(content, content_type="text/plain"):
-    return f"HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\n\r\n{content}"
+def response_with_content(content, content_type="text/plain", code=200):
+    return f"HTTP/1.1 {code} OK\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\n\r\n{content}"
 
-def response(path, user_agent, directory):
-    if path[0:6] == "/files":
-        file_path = Path(directory) / path.split('/')[-1]
+def file_response(http_method, path, directory, body):
+    file_path = Path(directory) / path.split('/')[-1]
+    if http_method == "POST":
+        file_path.write_text(body)
+        return response_with_content('', "application/octet-stream", 201)
+    else:
         if file_path.is_file():
             return response_with_content(file_path.read_text(), "application/octet-stream")
+
+def response(http_method, path, user_agent, directory, body):
+    if path[0:6] == "/files":
+        response = file_response(http_method, path, directory, body)
+        if response:
+            return response
     elif path[0:5] == "/echo":
         random_string = '/'.join(path.split('/')[2:])
         return response_with_content(random_string)
@@ -25,20 +34,23 @@ def response(path, user_agent, directory):
     return "HTTP/1.1 404 Not Found\r\n\r\n"
 
 def handle_client(client_socket, address, directory):
-    print(f"Connection from {address} has been established.")
     data = client_socket.recv(BUFFER_SIZE)
     request = data.decode(ENCODING)
-    print(f"Received from client: {request}")
+    print(f"Request from {address}:\n{request}")
 
     request_lines = request.split("\r\n")
+    http_method = request_lines[0].split(" ")[0]
     path = request_lines[0].split(" ")[1]
     user_agent = None
     for line in request_lines:
         if line.startswith("User-Agent:"):
             user_agent = line.split(" ")[1]
             break
+    body = None
+    if http_method == "POST":
+        body = request_lines[-1]
 
-    client_socket.sendall(response(path, user_agent, directory).encode(ENCODING))
+    client_socket.sendall(response(http_method, path, user_agent, directory, body).encode(ENCODING))
     client_socket.close()
 
 def main():
